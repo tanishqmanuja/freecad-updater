@@ -34,23 +34,47 @@ jobs:
       - name: Determine new version
         id: version
         run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0 || echo "v0.0.0")
-          NEW_TAG=$(bunx semver bump "${{ github.event.inputs.bump }}" "$LATEST_TAG")
-          echo "VERSION=$NEW_TAG" >> $GITHUB_ENV 
-          echo "::set-output name=tag::$NEW_TAG"
+          git fetch --tags
+
+          # Try to get latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found. Starting at 0.0.0"
+            LATEST_TAG="0.0.0"
+          fi
+
+          echo "Latest tag: $LATEST_TAG"
+
+          BUMP_TYPE="${{ github.event.inputs.bump }}"
+          echo "Bump type: $BUMP_TYPE"
+
+          # Use Bun semver bump
+          NEW_VER=$(bunx semver bump "$BUMP_TYPE" "$LATEST_TAG")
+
+          echo "New version: $NEW_VER"
+          echo "new_version=$NEW_VER" >> $GITHUB_OUTPUT
+
+      - name: Build Updater.exe for Windows
+        env:
+          VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          mkdir -p output
+          GOOS=windows GOARCH=amd64 go build -ldflags="-X main.Version=${{ env.VERSION }}" -o output/Updater.exe ./main.go
+
+      - name: Create Release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.new_version }}"
+          name: "FreeCAD Updater v${{ steps.version.outputs.new_version }}"
+          draft: false
+          prerelease: true
+          files: output/Updater.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate Changelog
         run: bunx changelogithub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Updater.exe for Windows
-        run: |
-          mkdir -p out
-          GOOS=windows GOARCH=amd64 go build -ldflags="-X main.Version=${{ env.VERSION }}" -o out/Updater.exe ./main.go
-
-      - name: Upload Windows binary artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: FreeCAD-Updater-Windows
-          path: out/Updater.exe
