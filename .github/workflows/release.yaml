@@ -91,7 +91,7 @@ jobs:
         with:
           tag_name: "v${{ steps.version.outputs.new_version }}"
           name: "FreeCAD Updater v${{ steps.version.outputs.new_version }}"
-          prerelease: true
+          prerelease: false
           files: output/Updater.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
