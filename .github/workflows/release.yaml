@@ -1,4 +1,4 @@
-name: Build Windows Updater
+name: Release
 
 on:
   workflow_dispatch:
@@ -50,7 +50,7 @@ jobs:
           GOOS=windows GOARCH=amd64 go build -ldflags="-X main.Version=${{ env.VERSION }}" -o out/Updater.exe ./main.go
 
       - name: Upload Windows binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: FreeCAD-Updater-Windows
           path: out/Updater.exe
